@@ -19,6 +19,7 @@ class ModeratorServer:
         self.buzz_pause = False
         self.current_buzzer = None
         self.scores = {}
+        self.buzzed_this_question = []
         print(f"Server started on {host}:{port}. Waiting for players...")
 
     def get_question(self):
@@ -48,6 +49,22 @@ class ModeratorServer:
 
         while True:
             if self.buzz_pause:
+                # Check that this person hasn't already buzzed
+                if self.current_buzzer in self.buzzed_this_question:
+                    saying_process.kill()
+                    bruh_process = subprocess.Popen(["say", "Bruh, you've already buzzed on this question? The fuck? Re-reading for the other players."])
+
+                    self.buzz_pause = False
+                    self.current_buzzer = None
+
+                    while bruh_process.poll() is None:
+                        pass
+
+                    self.question(current_question)
+
+
+                self.buzzed_this_question.append(self.current_buzzer)
+
                 correct_buzz = False
 
                 # Check if the process was still running
@@ -94,10 +111,15 @@ class ModeratorServer:
 
                 if correct_buzz:
                     self.question_function()
-                else:
-                    self.question(current_question)
+                else:  # incorrect buzz; re-read if there's been less than 2 buzzes
+                    if len(self.buzzed_this_question) >= 2:
+                        self.question_function()
+                    else:
+                        self.question(current_question)
 
     def question_function(self):
+        self.buzzed_this_question = []
+
         current_question = self.get_question()
 
         self.question(current_question)
