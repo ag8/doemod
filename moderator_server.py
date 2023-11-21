@@ -7,16 +7,6 @@ import threading
 import time
 
 import requests
-
-from openai import OpenAI
-import select
-import socket
-import subprocess
-import sys
-import threading
-import time
-
-import requests
 from openai import OpenAI
 
 client = OpenAI()
