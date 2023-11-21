@@ -2,6 +2,7 @@ import random
 import select
 import socket
 import subprocess
+import sys
 import threading
 import time
 
@@ -16,6 +17,7 @@ class ModeratorServer:
         self.server_socket.listen()
         self.player_names = {}
         self.buzz_event = threading.Event()
+        self.question_number = 0
         self.buzz_pause = False
         self.current_buzzer = None
         self.scores = {}
@@ -39,7 +41,7 @@ class ModeratorServer:
             return f"Error: Unable to fetch data (Status code: {response.status_code})"
 
     def question(self, current_question):
-        question_text = f"Your tossup is in {current_question.get('question', '').get('category', '')}; {current_question.get('question', '').get('tossup_format', '')}. "
+        question_text = f"Your tossup number {self.question_number} is in {current_question.get('question', '').get('category', '')}; {current_question.get('question', '').get('tossup_format', '')}. "
         question_text += f"{current_question.get('question', '').get('tossup_question', '')}"
 
         if current_question.get('question', '').get('tossup_format', '') == "Multiple Choice":
@@ -118,8 +120,29 @@ class ModeratorServer:
                         self.question(current_question)
 
     def question_function(self):
+        if self.question_number == 25:
+            # Sort the dictionary by scores in increasing order
+            sorted_scores = sorted(self.scores.items(), key=lambda x: x[1])
+
+            # Construct the announcement
+            announcement = "And that's the round! [[slnc 500]] "
+            for name, score in sorted_scores[:-1]:  # Go through all but the highest score
+                announcement += f"{name} with {score} points. [[slnc 500]] "
+
+            # Add a longer pause before announcing the first place
+            announcement += "[[slnc 1000]] And in first place, "
+            announcement += f"{sorted_scores[-1][0]} with {sorted_scores[-1][1]} points! Congratulations to the winner!"
+
+            final_statement = announcement
+
+            subprocess.Popen(['say', final_statement])
+
+            sys.exit(0)
+
+
         self.buzzed_this_question = []
 
+        self.question_number += 1
         current_question = self.get_question()
 
         self.question(current_question)
