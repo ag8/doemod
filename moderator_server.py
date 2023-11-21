@@ -13,13 +13,19 @@ client = OpenAI()
 
 
 def check_answer(voice_input, correct_answer, question_text, question_type):
+    if len(voice_input) == 1:  # if it's just one character, we can compare manually
+        if question_type == "Multiple Choice":
+            return correct_answer[0].lower() == voice_input[0].lower()
+
+    print("Calling GPT...")
+
     if question_type == "Multiple Choice":
         prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Saying just the letter of the correct choice is considered correct and should be counted. If the student gave an answer in words, then the student must have given the correct answer, word for word, for the answer to be counted. Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
     else:
         prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically very close? Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
 
     response = client.chat.completions.create(
-        model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt}
@@ -74,12 +80,18 @@ class ModeratorServer:
             # Handle errors (e.g., network issues, server errors)
             return f"Error: Unable to fetch data (Status code: {response.status_code})"
 
-    def question(self, current_question):
-        question_text = f"Your tossup number {self.question_number} is in {current_question.get('question', '').get('category', '')}; {current_question.get('question', '').get('tossup_format', '')}. "
-        question_text += f"{current_question.get('question', '').get('tossup_question', '')}"
+    def question(self, current_question, type="tossup", read=True, player_bonus=None):
+        assert type == "tossup" or type == "bonus"
+        question_text = f"Your {type} number {self.question_number} is in {current_question.get('question', '').get('category', '')}; {current_question.get('question', '').get(f'{type}_format', '')}. "
+        question_text += f"{current_question.get('question', '').get(f'{type}_question', '')}"
 
-        if current_question.get('question', '').get('tossup_format', '') == "Multiple Choice":
-            question_text = question_text.replace("\nW)", ". [[slnc 500]] W [[slnc 250]]").replace("\nX)", ". [[slnc 500]] X [[slnc 250]]").replace("\nY)", ". [[slnc 500]] Y [[slnc 250]]").replace("\nZ)", ". [[slnc 500]] Z [[slnc 250]]")
+        if current_question.get('question', '').get(f'{type}_format', '') == "Multiple Choice":
+            question_text = question_text.replace("\nW)", ". [[slnc 500]] W [[slnc 250]]").replace("\nX)",
+                                                                                                   ". [[slnc 500]] X [[slnc 250]]").replace(
+                "\nY)", ". [[slnc 500]] Y [[slnc 250]]").replace("\nZ)", ". [[slnc 500]] Z [[slnc 250]]")
+
+        if not read:
+            question_text = ""
 
         saying_process = subprocess.Popen(['say', question_text])
 
@@ -119,15 +131,20 @@ class ModeratorServer:
                 # Recognize the player
                 subprocess.Popen(['say', recognition])
 
-                time.sleep(5)  # this is when we'll be getting the voice input
+                # time.sleep(5)  # this is when we'll be getting the voice input
                 voice_input = "feldspar"
+                voice_input = input("Enter your answer here:")
 
                 # Get the correct answer
-                correct_answer = current_question.get('question', '').get('tossup_answer', '')
+                correct_answer = current_question.get('question', '').get(f'{type}_answer', '')
 
-                if check_answer(voice_input, correct_answer, current_question.get('question', '').get('tossup_question', ''), current_question.get('question', '').get('tossup_format', '')):
-                    info_subprocess = subprocess.Popen(['say', "That is correct!"])
-                    self.scores[self.current_buzzer] += 4
+                if check_answer(voice_input, correct_answer,
+                                current_question.get('question', '').get(f'{type}_question', ''),
+                                current_question.get('question', '').get(f'{type}_format', '')):
+                    say("That is correct!")
+
+                    self.current_buzzer = player_bonus if player_bonus is not None else self.current_buzzer
+                    self.scores[self.current_buzzer] += 4 if type == "tossup" else 10
                     correct_buzz = True
                 else:
                     if len(self.buzzed_this_question) < 2:
@@ -149,15 +166,26 @@ class ModeratorServer:
                 print(self.scores)
 
                 if correct_buzz:
-                    self.question_function()
+                    if type == "tossup":
+                        self.question(current_question, "bonus")
+                    else:
+                        self.question_function()
                 else:  # incorrect buzz; re-read if there's been less than 2 buzzes
-                    if len(self.buzzed_this_question) >= 2:
+                    if type == "bonus":
                         self.question_function()
                     else:
-                        self.question(current_question)
+                        if len(self.buzzed_this_question) >= 2:
+                            self.question_function()
+                        else:
+                            if still_running:
+                                say(f"I'll re-read for the other {'players' if len(self.player_names) > 2 else 'player'}")
+
+                                self.question(current_question, "tossup")
+                            else:
+                                self.question(current_question, "tossup", read=False)
 
     def question_function(self):
-        if self.question_number == 25:
+        if self.question_number == 10:
             # Sort the dictionary by scores in increasing order
             sorted_scores = sorted(self.scores.items(), key=lambda x: x[1])
 
