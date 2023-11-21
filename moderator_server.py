@@ -8,6 +8,50 @@ import time
 
 import requests
 
+from openai import OpenAI
+import select
+import socket
+import subprocess
+import sys
+import threading
+import time
+
+import requests
+from openai import OpenAI
+
+client = OpenAI()
+
+
+def check_answer(voice_input, correct_answer, question_text, question_type):
+    if question_type == "Multiple Choice":
+        prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Saying just the letter of the correct choice is considered correct and should be counted. If the student gave an answer in words, then the student must have given the correct answer, word for word, for the answer to be counted. Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
+    else:
+        prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically very close? Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
+
+    response = client.chat.completions.create(
+        model="gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    print(response)
+    print()
+
+    result = response.choices[0].message.content
+
+    print(result)
+
+    if result == "YES":
+        return True
+    elif result == "NO":
+        return False
+    else:
+        print("Not sure if this answer is correct")
+        print(f"Result is {result}")
+        return random.random() < 0.3
+
 
 class ModeratorServer:
     def __init__(self, host="0.0.0.0", port=12348):
@@ -91,12 +135,15 @@ class ModeratorServer:
                 # Get the correct answer
                 correct_answer = current_question.get('question', '').get('tossup_answer', '')
 
-                if voice_input == correct_answer or random.random() < 0.3:
+                if check_answer(voice_input, correct_answer, current_question.get('question', '').get('tossup_question', ''), current_question.get('question', '').get('tossup_format', '')):
                     info_subprocess = subprocess.Popen(['say', "That is correct!"])
                     self.scores[self.current_buzzer] += 4
                     correct_buzz = True
                 else:
-                    info_subprocess = subprocess.Popen(['say', "Incorrect; I'll re-read for the other players."])
+                    if len(self.buzzed_this_question) < 2:
+                        info_subprocess = subprocess.Popen(['say', "Incorrect; I'll re-read for the other players."])
+                    else:
+                        info_subprocess = subprocess.Popen(['say', "Incorrect; moving on."])
 
                     if still_running:  # interrupt; lose points
                         self.scores[self.current_buzzer] -= 4
