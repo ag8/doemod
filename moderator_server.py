@@ -11,7 +11,7 @@ from openai import OpenAI
 # from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 
 # anthropic = Anthropic(
-#     api_key="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",
+#     api_key="",
 # )
 
 from audio_grabber import record_audio, play_audio, analyze_audio
