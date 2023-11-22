@@ -7,12 +7,12 @@ import threading
 import time
 
 import requests
-# import openai
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+from openai import OpenAI
+# from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 
-anthropic = Anthropic(
-    api_key="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",
-)
+# anthropic = Anthropic(
+#     api_key="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",
+# )
 
 from audio_grabber import record_audio, play_audio, analyze_audio
 
@@ -42,15 +42,15 @@ def check_answer(voice_input, correct_answer, question_text, question_type):
     print(response)
     print()
 
-    # result = response.choices[0].message.content
+    result = response.choices[0].message.content
 
-    completion = anthropic.completions.create(
-        model="claude-2",
-        max_tokens_to_sample=300,
-        prompt=f"{HUMAN_PROMPT} {prompt} {AI_PROMPT}",
-    )
+    # completion = anthropic.completions.create(
+    #     model="claude-2",
+    #     max_tokens_to_sample=300,
+    #     prompt=f"{HUMAN_PROMPT} {prompt} {AI_PROMPT}",
+    # )
 
-    result = completion.completion.strip()
+    # result = completion.completion.strip()
 
     print(result)
 
