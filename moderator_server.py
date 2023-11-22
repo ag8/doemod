@@ -141,7 +141,7 @@ class ModeratorServer:
                 print(record_seconds)
 
                 record_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav", record_seconds)
-                play_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav")
+                # play_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav")
                 voice_input = analyze_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav")
 
                 # Get the correct answer
@@ -150,7 +150,7 @@ class ModeratorServer:
                 if check_answer(voice_input, correct_answer,
                                 current_question.get('question', '').get(f'{type}_question', ''),
                                 current_question.get('question', '').get(f'{type}_format', '')):
-                    say("That is correct!")
+                    say(f"{correct_answer} is correct!")
 
                     self.current_buzzer = player_bonus if player_bonus is not None else self.current_buzzer
                     self.scores[self.current_buzzer] += 4 if type == "tossup" else 10
