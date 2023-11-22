@@ -9,6 +9,8 @@ import time
 import requests
 from openai import OpenAI
 
+from audio_grabber import record_audio, play_audio, analyze_audio
+
 client = OpenAI()
 
 
@@ -121,19 +123,26 @@ class ModeratorServer:
                 # Kill the process
                 saying_process.kill()
 
-                recognition = ""
-
-                if still_running:
-                    recognition = "Interrupt!"
-
-                recognition += " " + self.current_buzzer + "."
-
                 # Recognize the player
-                subprocess.Popen(['say', recognition])
+                if still_running:
+                    say("Interrupt!" + self.current_buzzer + ".")
+                else:
+                    say(self.current_buzzer + ".")
 
-                # time.sleep(5)  # this is when we'll be getting the voice input
-                voice_input = "feldspar"
-                voice_input = input("Enter your answer here:")
+                # Figure out how many seconds to record for based on the answer length
+                # The formula is: a minimum of 3 seconds, up to 1 second per word (could be unlimited)
+                # If it's multiple choice, only record for two seconds, since it's just the letter
+                # However if it's an interrupt, record for the full time
+                words_in_answer = current_question.get('question', '').get(f'{type}_answer', '').count(" ") + 1
+                is_tossup = type == "tossup"
+                is_interrupt = still_running
+                record_seconds = 2 if is_tossup and not is_interrupt else max(3, words_in_answer)
+
+                print(record_seconds)
+
+                record_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav", record_seconds)
+                play_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav")
+                voice_input = analyze_audio(f"/Users/dyusha/fun_things/doemod/recordings/answer_{self.question_number}.wav")
 
                 # Get the correct answer
                 correct_answer = current_question.get('question', '').get(f'{type}_answer', '')
