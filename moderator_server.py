@@ -16,31 +16,33 @@ from openai import OpenAI
 
 from audio_grabber import record_audio, play_audio, analyze_audio
 
+# Run `export OPENAI_API_KEY='yourkey'`
 client = OpenAI()
 
-
 def check_answer(voice_input, correct_answer, question_text, question_type):
-    if len(voice_input) == 1:  # if it's just one character, we can compare manually
-        if question_type == "Multiple Choice":
+    if question_type == "Multiple Choice":
+        if len(voice_input) < 10 and voice_input[0].lower() in ['w', 'x', 'y', 'z']:  # if it's just one character, we can compare manually
             return correct_answer[0].lower() == voice_input[0].lower()
+    elif correct_answer[0].lower() == voice_input[0].lower():
+            return True
 
+    say(f"You said, {voice_input}.")
     print("Calling GPT...")
 
     if question_type == "Multiple Choice":
-        prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Saying just the letter of the correct choice is considered correct and should be counted. If the student gave an answer in words, then the student must have given the correct answer, word for word, for the answer to be counted. Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
+        prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the student said `{voice_input}`. (It sometimes makes mistakes, so 'why' might be a mistransliteration of 'Y'). Should this answer be counted? Saying just the letter of the correct choice is considered correct and should be counted. If the student gave an answer in words, then the student must have given the correct answer, word for word, for the answer to be counted. Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
     else:
-        prompt = f"You are evaluating an answer for science bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. The student said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically very close? Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
+        prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the student said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically very close? Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-1106",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt}
-        ]
+        ],
+        max_tokens=1,  # YES or NO are each a single token
+        temperature=0
     )
-
-    print(response)
-    print()
 
     result = response.choices[0].message.content
 
@@ -64,6 +66,13 @@ def check_answer(voice_input, correct_answer, question_text, question_type):
         return random.random() < 0.3
 
 
+def say(text, interruptible=False):
+    if interruptible:
+        return subprocess.Popen(["say", text])
+    else:
+        subprocess.run(["say", text])
+
+
 class ModeratorServer:
     def __init__(self, host="0.0.0.0", port=12348):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -80,7 +89,6 @@ class ModeratorServer:
         print(f"Server started on {host}:{port}. Waiting for players...")
 
     def get_question(self):
-        # URL of the SciBowlDB API for random questions
         url = "https://scibowldb.com/api/questions/random"
 
         # Make a GET request to the API
@@ -89,42 +97,39 @@ class ModeratorServer:
         # Check if the request was successful
         if response.status_code == 200:
             # Parse the JSON response
-            question_data = response.json()
-            return question_data
+            return response.json()
         else:
             # Handle errors (e.g., network issues, server errors)
-            return f"Error: Unable to fetch data (Status code: {response.status_code})"
+            return f"Error: Unable to fetch question (Status code: {response.status_code})"
 
     def question(self, current_question, type="tossup", read=True, player_bonus=None):
         assert type == "tossup" or type == "bonus"
         question_text = f"Your {type} number {self.question_number} is in {current_question.get('question', '').get('category', '')}; {current_question.get('question', '').get(f'{type}_format', '')}. "
-        question_text += f"{current_question.get('question', '').get(f'{type}_question', '')}"
+        question_text += f"{current_question.get('question').get(f'{type}_question', '')}"
 
-        if current_question.get('question', '').get(f'{type}_format', '') == "Multiple Choice":
-            question_text = question_text.replace("\nW)", ". [[slnc 500]] W [[slnc 250]]").replace("\nX)",
-                                                                                                   ". [[slnc 500]] X [[slnc 250]]").replace(
-                "\nY)", ". [[slnc 500]] Y [[slnc 250]]").replace("\nZ)", ". [[slnc 500]] Z [[slnc 250]]")
+        if current_question.get('question').get(f'{type}_format', '') == "Multiple Choice":
+            question_text = (question_text
+                             .replace("\nW)", ". [[slnc 500]] W [[slnc 250]]")
+                             .replace("\nX)", ". [[slnc 500]] X [[slnc 250]]")
+                             .replace("\nY)", ". [[slnc 500]] Y [[slnc 250]]")
+                             .replace("\nZ)", ". [[slnc 500]] Z [[slnc 250]]"))
 
         if not read:
             question_text = ""
 
-        saying_process = subprocess.Popen(['say', question_text])
+        saying_process = say(question_text, interruptible=True)
 
         while True:
             if self.buzz_pause:
                 # Check that this person hasn't already buzzed
                 if self.current_buzzer in self.buzzed_this_question:
                     saying_process.kill()
-                    bruh_process = subprocess.Popen(["say", "Bruh, you've already buzzed on this question? The fuck? Re-reading for the other players."])
+                    say(f"Bruh, you've already buzzed on this question? The fuck? Re-reading for the other player{'s' * (len(self.player_names) > 2)}.")
 
                     self.buzz_pause = False
                     self.current_buzzer = None
 
-                    while bruh_process.poll() is None:
-                        pass
-
-                    self.question(current_question)
-
+                    self.question(current_question, "tossup")
 
                 self.buzzed_this_question.append(self.current_buzzer)
 
@@ -168,20 +173,26 @@ class ModeratorServer:
                     self.current_buzzer = player_bonus if player_bonus is not None else self.current_buzzer
                     self.scores[self.current_buzzer] += 4 if type == "tossup" else 10
                     correct_buzz = True
-                else:
-                    if len(self.buzzed_this_question) < 2:
-                        info_subprocess = subprocess.Popen(['say', "Incorrect; I'll re-read for the other players."])
-                    else:
-                        info_subprocess = subprocess.Popen(['say', "Incorrect; moving on."])
 
-                    if still_running:  # interrupt; lose points
+                    self.buzz_pause = False
+                    player = self.current_buzzer
+                    self.current_buzzer = None
+                    self.buzzed_this_question = []
+
+                    if type == 'tossup':
+                        self.question(current_question, 'bonus', player_bonus=player)
+
+                else:
+                    if len(self.buzzed_this_question) < 2 and type == 'tossup':
+                        say("Incorrect.")
+                    else:
+                        say(f"Incorrect; the correct answer was {correct_answer}. Moving on.")
+
+                    if still_running and type == 'tossup':  # interrupt; lose points
                         self.scores[self.current_buzzer] -= 4
 
                 self.buzz_pause = False
                 self.current_buzzer = None
-
-                while info_subprocess.poll() is None:  # wait for the info to finish being said
-                    pass
 
                 time.sleep(0.5)
 
@@ -191,23 +202,23 @@ class ModeratorServer:
                     if type == "tossup":
                         self.question(current_question, "bonus")
                     else:
-                        self.question_function()
+                        self.next_question()
                 else:  # incorrect buzz; re-read if there's been less than 2 buzzes
                     if type == "bonus":
-                        self.question_function()
+                        self.next_question()
                     else:
                         if len(self.buzzed_this_question) >= 2:
-                            self.question_function()
+                            self.next_question()
                         else:
                             if still_running:
-                                say(f"I'll re-read for the other {'players' if len(self.player_names) > 2 else 'player'}")
+                                say(f"I'll re-read for the other player{'s' * (len(self.player_names) > 2)}")
 
                                 self.question(current_question, "tossup")
                             else:
                                 self.question(current_question, "tossup", read=False)
 
-    def question_function(self):
-        if self.question_number == 10:
+    def next_question(self):
+        if self.question_number == 16:
             # Sort the dictionary by scores in increasing order
             sorted_scores = sorted(self.scores.items(), key=lambda x: x[1])
 
@@ -222,17 +233,16 @@ class ModeratorServer:
 
             final_statement = announcement
 
-            subprocess.Popen(['say', final_statement])
+            say(final_statement)
 
             sys.exit(0)
-
 
         self.buzzed_this_question = []
 
         self.question_number += 1
         current_question = self.get_question()
 
-        self.question(current_question)
+        self.question(current_question, "tossup")
 
     def client_thread(self, conn, addr):
         conn.send("Enter your name: ".encode())
@@ -263,7 +273,7 @@ class ModeratorServer:
             for player_name in self.player_names.values():
                 self.scores[player_name] = 0
 
-            threading.Thread(target=self.question_function).start()
+            threading.Thread(target=self.next_question).start()
 
     def accept_clients(self):
         try:
@@ -272,6 +282,7 @@ class ModeratorServer:
                 threading.Thread(target=self.client_thread, args=(conn, addr)).start()
         except Exception as e:
             print(f"Error accepting clients: {e}")
+
 
 if __name__ == "__main__":
     server = ModeratorServer()
