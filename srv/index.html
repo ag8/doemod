@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Buzz Button</title>
+    <style>
+      #buzzButton {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        font-size: 24px;
+        touch-action: manipulation;
+      }
+    </style>
+  </head>
+  <body>
+    <form
+      id="formContainer"
+      onsubmit="event.preventDefault(); connectWebSocket()"
+    >
+      <label for="name">Name:</label>
+      <input
+        type="text"
+        id="name"
+        placeholder="Enter your name"
+        required
+      /><br /><br />
+      <button>Connect</button>
+    </form>
+
+    <div id="buzzContainer" style="display: none">
+      <button id="buzzButton" onclick="buzz()">Buzz</button>
+    </div>
+    <script>
+      const serverIp = window.location.hostname;
+      const port = 12348;
+      let socket;
+
+      function connectWebSocket() {
+        const nameInput = document.getElementById("name");
+        const formContainer = document.getElementById("formContainer");
+        const buzzContainer = document.getElementById("buzzContainer");
+
+        console.log(`Connecting to ws://${serverIp}:${port}`);
+        socket = new WebSocket(`ws://${serverIp}:${port}`);
+
+        socket.onopen = function (event) {
+          console.log("WebSocket is open now.");
+          socket.send(nameInput.value);
+          formContainer.style.display = "none";
+          buzzContainer.style.display = "block";
+        };
+      }
+
+      function buzz() {
+        socket.send("buzz");
+      }
+      document.addEventListener("keydown", function (event) {
+        if (event.code === "Space") {
+          buzz();
+        }
+      });
+    </script>
+  </body>
+</html>

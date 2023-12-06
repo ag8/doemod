@@ -1,0 +1,9 @@
+asyncio
+numpy
+openai
+pyaudio
+qrcode
+requests
+websockets
+webrtcvad
+whisper
