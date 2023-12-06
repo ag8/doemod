@@ -31,4 +31,4 @@ Let us know what features you'd like to see prioritized!
 - [ ] Round settings (# of questions, categories)
 - [ ] Quiz bowl
 - [ ] Cross-platform support
-- [ ] Potentially run in browser with [whisper.cpp WASM](https://github.com/yl4579/StyleTTS2)
+- [ ] Potentially run in browser with [whisper.cpp WASM](https://whisper.ggerganov.com/)
