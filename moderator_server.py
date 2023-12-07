@@ -88,7 +88,9 @@ class ModeratorServer:
         self.clear_buzzer()
         type = "tossup" if self.is_tossup else "bonus"
         question_text = current_question[f'{type}_question']
-        question_text = re.sub("\[(?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\]", "", question_text) # remove bracketed phonetic spellings
+        question_text = re.sub("\[(?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\]", "", question_text)  # remove bracketed phonetic spellings
+        question_text = re.sub("\(read as: (?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\)", "", question_text)  # remove "read as" phonetic spellings
+        question_text = re.sub("`[^`]+` ?\(read as: ([^\)]+)\)", r"\1", question_text, flags=re.IGNORECASE)  # "read as" equations
 
         if ": 1)" in question_text:  # list of items; add pause between each numbered item
             question_text = re.sub("[:,;] ([0-9]+)\)", r". [[slnc 500]] \1 [[slnc 250]]", question_text)

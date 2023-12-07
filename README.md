@@ -7,10 +7,10 @@ An automatic [Science Bowl](https://science.osti.gov/wdts/nsb) moderator. Uses [
 This only works on Mac right now, but everything is cross-platform except the `say` command. The speech recognition runs locally and may take a bit on older Macs.
 
 1. Create an [OpenAI API key](https://platform.openai.com/account/api-keys)
-2. [Open Terminal](ssh://)
-3. Run `open ~/.zshrc`
-4. Paste `export OPENAI_API_KEY='your-api-key-here'` at the bottom and save
-5. Run `cd ~/Downloads && git clone https://github.com/ag8/doemod.git && cd doemod`
+2. Run `open ~/.zshrc` in Terminal
+3. Paste `export OPENAI_API_KEY='your-api-key-here'` at the bottom and save
+4. Run `cd ~/Downloads && git clone https://github.com/ag8/doemod.git && cd doemod`
+5. Run `brew install portaudio` (using [Homebrew](https://brew.sh/))
 6. Run `pip install -r requirements.txt`
 
 ## Running
