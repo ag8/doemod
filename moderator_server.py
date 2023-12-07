@@ -66,7 +66,7 @@ class ModeratorServer:
     
     def next_question(self):
         self.question_number += 1
-        if self.question_number > 2:
+        if self.question_number > 20:
             self.end_round()
         print(f"Question {self.question_number}")
         self.is_tossup = True
@@ -97,11 +97,7 @@ class ModeratorServer:
 
         if current_question[f'{type}_format'] == "Multiple Choice":
             # Add pauses between the choices
-            question_text = (question_text
-                             .replace("\nW)", ". [[slnc 500]] W [[slnc 250]]")
-                             .replace("\nX)", ". [[slnc 500]] X [[slnc 250]]")
-                             .replace("\nY)", ". [[slnc 500]] Y [[slnc 250]]")
-                             .replace("\nZ)", ". [[slnc 500]] Z [[slnc 250]]"))
+            question_text = re.sub("\n\(?([W-Z])\)", r". [[slnc 500]] \1 [[slnc 250]]", question_text)
 
         self.saying_process = say(question_text, interruptible=True)
         return_code = self.saying_process.wait()
@@ -214,13 +210,16 @@ class ModeratorServer:
 
         if given_answer == "why":
             given_answer = "y"
+        elif given_answer in ["ze", "see"]:
+            given_answer = "z"
         
+        # Remove solution from answer
         solution = re.search("\(Solution: [^)]+\)", correct_answer)
         if solution:
-            # Remove the solution from the preprocessed answer
             solution = solution[0]
             correct_answer = correct_answer.replace(solution, "")
         
+        # Check for acceptable answer
         if len(re.findall("\(ACCEPT:[^)]+\)", correct_answer)) == 1:
             acceptable_answer = re.search("\(ACCEPT:[^)]+\)", correct_answer)[0][8:-1]
             if given_answer == clean_answer(acceptable_answer):
