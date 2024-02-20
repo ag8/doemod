@@ -5,6 +5,7 @@ import numpy as np
 
 class SpeechRecognizer:
     def __init__(self, model="base.en"):
+        print("Loading whisper model...")
         self.model = whisper.load_model(model)
         self.vad = webrtcvad.Vad()
         self.audio = pyaudio.PyAudio()
@@ -26,7 +27,7 @@ class SpeechRecognizer:
         frames = []
         no_speech_count = -10 # start at -300ms
 
-        while len(frames) < 500 and no_speech_count < 40: # stop after no speech for 1.2s or after 15s of audio
+        while len(frames) < 400 and no_speech_count < 33: # stop after no speech for 1s or after 12s of audio
             # read the audio data
             buffer = stream.read(CHUNK) # 30ms
             # add the data to the frames list

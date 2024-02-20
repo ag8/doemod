@@ -16,7 +16,7 @@ This only works on Mac right now, but everything is cross-platform except the `s
 ## Running
 
 1. Run `python moderator_server.py`
-2. Connect to the server on each device you want to buzz from
+2. Connect to the server on each device you want to buzz from. They need to be on the same WiFi network as the server.
 
 ## Roadmap
 

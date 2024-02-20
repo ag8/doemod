@@ -3,14 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Buzz Button</title>
+    <title>Science Bowl Buzzer</title>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
       #buzzButton {
         width: 200px;
         height: 200px;
         border-radius: 50%;
         font-size: 24px;
         touch-action: manipulation;
+      }
+      #statusIndicator {
+        font-size: 24px;
+        margin-top: 10px;
       }
     </style>
   </head>
@@ -31,6 +44,7 @@
 
     <div id="buzzContainer" style="display: none">
       <button id="buzzButton" onclick="buzz()">Buzz</button>
+      <div id="statusIndicator"></div>
     </div>
     <script>
       const serverIp = window.location.hostname;
@@ -41,6 +55,7 @@
         const nameInput = document.getElementById("name");
         const formContainer = document.getElementById("formContainer");
         const buzzContainer = document.getElementById("buzzContainer");
+        const statusIndicator = document.getElementById("statusIndicator");
 
         console.log(`Connecting to ws://${serverIp}:${port}`);
         socket = new WebSocket(`ws://${serverIp}:${port}`);
@@ -50,6 +65,17 @@
           socket.send(nameInput.value);
           formContainer.style.display = "none";
           buzzContainer.style.display = "block";
+          statusIndicator.textContent = "🟢 Connected";
+        };
+
+        socket.onclose = function (event) {
+          console.log("WebSocket is closed.");
+          statusIndicator.textContent = "🔴 Disconnected";
+        };
+
+        socket.onerror = function (event) {
+          console.error("WebSocket error occurred.");
+          statusIndicator.textContent = "🔴 Disconnected";
         };
       }
 

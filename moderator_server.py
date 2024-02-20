@@ -243,12 +243,12 @@ class ModeratorServer:
         print("Calling GPT...")
 
         if question_type == "Multiple Choice":
-            prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the player said `{voice_input}`. Should this answer be counted? Saying just the letter of the correct choice is considered correct and should be counted. If the player gave an answer in words, then the player must have given the correct answer, word for word, for the answer to be counted. (The transcription is phonetic, so also count homophones of the correct answer.) Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted."
+            prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the player said `{voice_input}`. Should this answer be counted? If the player gave an answer in words, then the player must have given the correct answer, word for word, for the answer to be counted. (The transcription is phonetic, so also count homophones of the correct answer.) Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted."
         else:
             prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the player said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically also correct? (The transcription is phonetic, so also count homophones of a correct answer.) Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -337,6 +337,7 @@ class ModeratorServer:
         finally:
             http_server.shutdown()
             loop.close()
+            self.speech_recognizer.__del__()
 
     
     def start_round(self):
@@ -361,6 +362,10 @@ class ModeratorServer:
         self.print_scores()
 
         sys.exit(0)
+    
+    def __del__(self):
+        if self.saying_process:
+            self.saying_process.kill()
 
 if __name__ == "__main__":
     server = ModeratorServer()
