@@ -14,6 +14,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 from typing import Dict, List
 from time import sleep
 
+from mathtest import get_say_command_text_from_latex
 from speech_recognizer import SpeechRecognizer
 
 client = openai.OpenAI()
@@ -27,6 +28,7 @@ except openai.AuthenticationError:
 except openai.APIConnectionError:
     print("Couldn't connect to the OpenAI API. Check your internet connection?")
     sys.exit(1)
+
 
 def say(text, interruptible=False):
     if interruptible:
@@ -51,7 +53,7 @@ class ModeratorServer:
 
     @staticmethod
     def get_question():
-        url = "https://scibowldb.com/api/questions/random"
+        url = "https://scibowldb.com/api/questions/605"
 
         # Make a GET request to the API
         response = requests.get(url)
@@ -63,16 +65,16 @@ class ModeratorServer:
         else:
             # Handle errors (e.g., network issues, server errors)
             return f"Error: Unable to fetch question (reason: {response.reason})"
-    
+
     def next_question(self):
         self.question_number += 1
-        if self.question_number > 20:
+        if self.question_number > 10:
             self.end_round()
         print(f"Question {self.question_number}")
         self.is_tossup = True
         self.bonus_player = None
         self.buzzed_this_question = []
-        
+
         self.current_question = self.get_question()
         self.read_question()
 
@@ -88,9 +90,18 @@ class ModeratorServer:
         self.clear_buzzer()
         type = "tossup" if self.is_tossup else "bonus"
         question_text = current_question[f'{type}_question']
-        question_text = re.sub("\[(?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\]", "", question_text)  # remove bracketed phonetic spellings
-        question_text = re.sub("\(read as: (?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\)", "", question_text)  # remove "read as" phonetic spellings
-        question_text = re.sub("`[^`]+` ?\(read as: ([^\)]+)\)", r"\1", question_text, flags=re.IGNORECASE)  # "read as" equations
+        question_text = re.sub("\[(?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\]", "",
+                               question_text)  # remove bracketed phonetic spellings
+        question_text = re.sub("\(read as: (?:[a-zA-Z]+-)*[A-Z]+(?:-[a-zA-Z]+)*\)", "",
+                               question_text)  # remove "read as" phonetic spellings
+        question_text = re.sub("`[^`]+` ?\(read as: ([^\)]+)\)", r"\1", question_text,
+                               flags=re.IGNORECASE)  # "read as" equations
+
+        # Replace math with speech
+        # Math is enclosed in backticks like `so`
+        math = re.findall("`[^`]+`", question_text)
+        for m in math:
+            question_text = question_text.replace(m, get_say_command_text_from_latex(m[1:-1]))
 
         if ": 1)" in question_text:  # list of items; add pause between each numbered item
             question_text = re.sub("[:,;] ([0-9]+)\)", r". [[slnc 500]] \1 [[slnc 250]]", question_text)
@@ -117,7 +128,7 @@ class ModeratorServer:
                     say(f"That's time. The correct answer was {self.current_question['bonus_answer']}.")
                     print(end='     \r')
                     self.next_question()
-    
+
     def valid_buzz(self, buzzer):
         if self.game_running is False:
             return False
@@ -127,7 +138,7 @@ class ModeratorServer:
             return buzzer not in self.buzzed_this_question  # can't buzz twice
         else:
             return buzzer == self.bonus_player
-    
+
     def handle_buzz(self, buzzer):
         interrupt = False
 
@@ -137,7 +148,7 @@ class ModeratorServer:
             self.saying_process = None
             if self.is_tossup:
                 say("Interrupt!")
-        
+
         self.buzzed_this_question.append(buzzer)
         say(buzzer + ".")
 
@@ -151,8 +162,8 @@ class ModeratorServer:
         correct_answer = self.current_question.get(f'{type}_answer')
 
         if self.check_answer(voice_input, correct_answer,
-                                self.current_question.get(f'{type}_question'),
-                                self.current_question.get(f'{type}_format')):
+                             self.current_question.get(f'{type}_question'),
+                             self.current_question.get(f'{type}_format')):
             say(f"{correct_answer} is correct!")
             if self.is_tossup:
                 self.is_tossup = False
@@ -165,7 +176,7 @@ class ModeratorServer:
         else:
             if interrupt and self.is_tossup:  # interrupt; lose points
                 self.scores[buzzer] -= 4
-            
+
             if len(self.buzzed_this_question) < 2 and self.is_tossup:
                 say("Incorrect.")
                 if interrupt:
@@ -185,7 +196,7 @@ class ModeratorServer:
 
     def clear_buzzer(self):
         self.current_buzzer = None
-    
+
     def countdown(self, seconds):
         for i in range(seconds, -1, -1):
             if self.current_buzzer is None:
@@ -212,13 +223,13 @@ class ModeratorServer:
             given_answer = "y"
         elif given_answer in ["ze", "see"]:
             given_answer = "z"
-        
+
         # Remove solution from answer
         solution = re.search("\(Solution: [^)]+\)", correct_answer)
         if solution:
             solution = solution[0]
             correct_answer = correct_answer.replace(solution, "")
-        
+
         # Check for acceptable answer
         if len(re.findall("\(ACCEPT:[^)]+\)", correct_answer)) == 1:
             acceptable_answer = re.search("\(ACCEPT:[^)]+\)", correct_answer)[0][8:-1]
@@ -234,10 +245,9 @@ class ModeratorServer:
                 return given_answer == correct_answer[0].lower()
             elif given_answer == clean_answer(correct_answer[1:]):  # matches everything after the letter
                 return True
-        
+
         if given_answer == clean_answer(correct_answer):
             return True
-
 
         print(f"You said, {voice_input}. Processed answer is {given_answer}.")
         print("Calling GPT...")
@@ -271,7 +281,7 @@ class ModeratorServer:
             print("Not sure if this answer is correct")
             print(f"Result is {result}")
             return random.random() < 0.3
-        
+
     def print_scores(self):
         print("Scores:")
         for name, score in self.scores.items():
@@ -309,9 +319,11 @@ class ModeratorServer:
         loop.run_until_complete(asyncio.gather(start_websocket_server, return_exceptions=True))
 
         directory = "srv"
+
         class DirectoryHandler(SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=directory, **kwargs)
+
             def log_message(self, format, *args):
                 pass
 
@@ -339,7 +351,6 @@ class ModeratorServer:
             loop.close()
             self.speech_recognizer.__del__()
 
-    
     def start_round(self):
         # Initialize all scores to zero
         self.scores = {player_name: 0 for player_name in self.player_names}
@@ -362,10 +373,11 @@ class ModeratorServer:
         self.print_scores()
 
         sys.exit(0)
-    
+
     def __del__(self):
         if self.saying_process:
             self.saying_process.kill()
+
 
 if __name__ == "__main__":
     server = ModeratorServer()
