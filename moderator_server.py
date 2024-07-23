@@ -101,7 +101,8 @@ class ModeratorServer:
         # Math is enclosed in backticks like `so`
         math = re.findall("`[^`]+`", question_text)
         for m in math:
-            question_text = question_text.replace(m, get_say_command_text_from_latex(m[1:-1]))
+            replacement = get_say_command_text_from_latex(m[1:-1])
+            question_text = question_text.replace(m, replacement)
 
         if ": 1)" in question_text:  # list of items; add pause between each numbered item
             question_text = re.sub("[:,;] ([0-9]+)\)", r". [[slnc 500]] \1 [[slnc 250]]", question_text)
