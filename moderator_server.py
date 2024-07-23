@@ -53,7 +53,7 @@ class ModeratorServer:
 
     @staticmethod
     def get_question():
-        url = "https://scibowldb.com/api/questions/605"
+        url = "https://scibowldb.com/api/questions/random"
 
         # Make a GET request to the API
         response = requests.get(url)
@@ -259,7 +259,7 @@ class ModeratorServer:
             prompt = f"You are evaluating an answer for Science Bowl. The question was: ```\n{question_text}\n```. The correct answer is `{correct_answer}`. According to voice transcription software, the player said `{voice_input}`. Should this answer be counted? Is it essentially the correct answer, or scientifically also correct? (The transcription is phonetic, so also count homophones of a correct answer.) Respond only YES or NO. Say YES if the answer should be accepted, and NO if the answer should not be accepted. Say only YES or NO, and nothing else."
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ],
