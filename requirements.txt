@@ -6,4 +6,4 @@ qrcode
 requests
 websockets
 webrtcvad
-whisper
+git+https://github.com/openai/whisper.git
